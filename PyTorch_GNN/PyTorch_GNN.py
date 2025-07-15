@@ -268,8 +268,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
     patience = 50
     patience_counter = 0
 
-    tau = 0.99
-
     epoch_times = []
 
     for epoch in range(epochs):
@@ -416,7 +414,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
             baseline_encoder.eval()
             baseline_decoder.load_state_dict(decoder.state_dict())
             baseline_decoder.eval()
-            no_improvement = 0
             print(f"\033[35m New best model saved at epoch {epoch+1} with average validation tour length {val_avg_tour_length:.2f}\033[0m")
         else:
             patience_counter += 1
