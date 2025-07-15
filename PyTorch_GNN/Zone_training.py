@@ -125,17 +125,9 @@ def generate_dataset(df, grouped, times):
             min_dist = min(d.values())
             max_dist = max(d.values())
             dist_extremes_list.append([min_dist, max_dist])
-            # sorted_d = dict(sorted(d.items(), key=lambda item: item[1])) # Sort stops by distance
-            # top_d = dict(list(sorted_d.items())) # Maintain the N closest stops, excluding the autoreference
             for stop2 in route.stop_id:
                 if stop != stop2:
-                    edges.append([i, idx_stops[stop2]])
-                    # x1, y1 = projected_coords[stop]
-                    # x2, y2 = projected_coords[stop2]
-
-                    # Distance in meters between stops
-                    # dist = np.hypot(x2 - x1, y2 - y1)
-                    
+                    edges.append([i, idx_stops[stop2]])                    
                     edge_weights.append([d[stop2]])
 
 
@@ -157,12 +149,6 @@ def generate_dataset(df, grouped, times):
         val_len = int(total_len * val_ratio)
         train_len = total_len - val_len
         train_dataset, val_dataset = random_split(graph_list, [train_len, val_len]) # Split dataset into training and validation sets (80% train, 20% validation)
-    # elif len(graph_list) > 1:
-    #     total_len = len(graph_list)
-    #     val_ratio = 0.5
-    #     val_len = int(total_len * val_ratio)
-    #     train_len = total_len - val_len
-    #     train_dataset, val_dataset = random_split(graph_list, [train_len, val_len]) # Split dataset into training and validation sets (50% train, 50% validation)
     else:
         train_dataset = graph_list
         val_dataset = graph_list
@@ -209,11 +195,6 @@ def reinforce_loss(tour_length, log_probs, baseline=None):
     loss = -torch.mean(log_probs * advantage.detach()) - 0.05 * entropy
    
     return loss, reward
-
-
-# def get_epsilon(epoch, total_epochs=100, start=0.3, end=0.05):
-#     return max(end, start - epoch * (start - end) / total_epochs)
-
 
 def get_temperature(epoch):
     initial_temp = 2.0
@@ -289,10 +270,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
     patience = 50
     patience_counter = 0
 
-    no_improvement = 0
-
-    tau = 0.99
-
     epoch_times = []
 
     for epoch in range(epochs):
@@ -348,30 +325,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
             log_probs_tensor = torch.stack(batch_log_probs)
 
             ###########################################
-            ######### Moving average baseline #########
-            ###########################################
-
-            # current_mean = tour_lengths_tensor.mean().detach()
-            # if moving_baseline is None:
-            #     moving_baseline = current_mean
-            # else:
-            #     moving_baseline = alpha * moving_baseline + (1 - alpha) * current_mean
-
-            # loss = reinforce_loss(tour_lengths_tensor, log_probs_tensor, moving_baseline)
-
-            # loss.backward()
-
-            ###########################################
-            ############# Critic baseline #############
-            ###########################################
-
-            # baseline_pred = critic(node_embeddings, batch.batch)
-            # critic_loss = F.mse_loss(baseline_pred, tour_lengths_tensor.detach())
-            # batch_loss = reinforce_loss(tour_lengths_tensor, log_probs_tensor, baseline=baseline_pred.detach())
-            # total_loss = batch_loss + critic_weight * critic_loss            
-            # total_loss.backward()
-
-            ###########################################
             ############ Rollout baseline #############
             ###########################################
 
@@ -409,11 +362,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
             torch.nn.utils.clip_grad_norm_(decoder.parameters(), max_norm=1.0)
 
             optimizer.step()
-
-            # Free memory
-            # del log_probs_tensor
-            # del tour_lengths_tensor
-            # torch.cuda.empty_cache() 
 
             epoch_loss += loss.item()
 
@@ -454,14 +402,14 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
         if val_avg_tour_length < best_val_length:
             best_val_length = val_avg_tour_length
             patience_counter = 0
-            # torch.save({
-            #     "epoch": epoch,
-            #     "encoder_state_dict": encoder.state_dict(),
-            #     "decoder_state_dict": decoder.state_dict(),
-            #     "optimizer_state_dict": optimizer.state_dict(),
-            #     "val_avg_tour_length": val_avg_tour_length,
-            #     "actual_length" : actual_avg_val,
-            # }, f"zone_results/best_checkpoint_{cluster}.pt")
+            torch.save({
+                "epoch": epoch,
+                "encoder_state_dict": encoder.state_dict(),
+                "decoder_state_dict": decoder.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "val_avg_tour_length": val_avg_tour_length,
+                "actual_length" : actual_avg_val,
+            }, f"zone_results/best_checkpoint_{cluster}.pt")
 
             baseline_encoder.load_state_dict(encoder.state_dict())
             baseline_encoder.eval()
@@ -472,13 +420,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
             print(f"\033[35m New best model saved at epoch {epoch+1} with average validation tour length {val_avg_tour_length:.2f}\033[0m")
         else:
             patience_counter += 1
-            # for baseline_param, model_param in zip(baseline_encoder.parameters(), encoder.parameters()):
-            #     baseline_param.data = tau * baseline_param.data + (1 - tau) * model_param.data
-            # baseline_encoder.eval()
-
-            # for baseline_param, model_param in zip(baseline_decoder.parameters(), decoder.parameters()):
-            #     baseline_param.data = tau * baseline_param.data + (1 - tau) * model_param.data
-            # baseline_decoder.eval()
 
             print(f"\033[33m No improvement ({patience_counter}/{patience})\033[0m")
 
@@ -531,9 +472,3 @@ if __name__ == "__main__":
 
     avg_tour_lengths, avg_tour_lenghts_val, best_val_length, epoch_times = train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train_loader, val_loader, epochs, stops_idx, times, cluster, actual_avg_val, device)
     print(f"Difference between validation tour length and actual average validation tour length: {(best_val_length - actual_avg_val):.2f} seconds")
-
-    # with open(f"zone_times/times_{cluster}.json", "w") as f:
-    #     json.dump(epoch_times, f)
-
-    # Plot the results
-    # utils.plot(avg_tour_lengths, avg_tour_lenghts_val)

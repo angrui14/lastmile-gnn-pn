@@ -1,3 +1,4 @@
 almrrc2021/*
 *.png
 PyTorch_GNN/*.json
+PyTorch_GNN/graph_lists/*

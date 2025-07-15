@@ -114,13 +114,6 @@ def generate_dataset(df, grouped, times):
         edges = []
         edge_weights = []
 
-        # coords_dict = route.set_index("stop_id")[["lat", "lng"]].to_dict("index")
-
-        # projected_coords = {
-        #     stop_id: transformer.transform(stop["lng"], stop["lat"])
-        #     for stop_id, stop in coords_dict.items()
-        # }
-
         dist_extremes_list = []
         for i, stop in enumerate(route.stop_id):
             d = times[route_id][stop]
@@ -132,19 +125,11 @@ def generate_dataset(df, grouped, times):
 
             sorted_d = dict(sorted(d.items(), key=lambda item: item[1])) # Sort stops by distance
 
-            # if route[route["stop_id"] == stop]["order"].values[0] != 0:
-            #     top_d = dict(list(sorted_d.items())[:51]) # Maintain the N closest stops
-            # else:
-            #     top_d = sorted_d
-
             top_d = sorted_d
 
             for stop2 in top_d.keys():
                 if stop != stop2:
-                    edges.append([i, idx_stops[stop2]])
-                    # x1, y1 = projected_coords[stop]
-                    # x2, y2 = projected_coords[stop2]
-                    # dist = np.hypot(x2 - x1, y2 - y1)  # Distance between stops              
+                    edges.append([i, idx_stops[stop2]])         
                     edge_weights.append([top_d[stop2]])
 
         dist_extremes = torch.tensor(dist_extremes_list, dtype=torch.float)
@@ -161,8 +146,6 @@ def generate_dataset(df, grouped, times):
     # Store graph list if it does not exist
     if not os.path.exists("graph_lists/graph_list_35nf_1ef.pt"):
         torch.save(graph_list, "graph_lists/graph_list_35nf_1ef.pt")
-        # del projected_coords
-        # del coords_dict
         del idx_stops
 
     total_len = len(graph_list)
@@ -342,30 +325,7 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
             tour_lengths_tensor = torch.tensor(batch_tour_lengths, dtype=torch.float32, device=device).detach()
             log_probs_tensor = torch.stack(batch_log_probs)
 
-            ###########################################
-            ######### Moving average baseline #########
-            ###########################################
-
-            # current_mean = tour_lengths_tensor.mean().detach()
-            # if moving_baseline is None:
-            #     moving_baseline = current_mean
-            # else:
-            #     moving_baseline = alpha * moving_baseline + (1 - alpha) * current_mean
-
-            # batch_loss = reinforce_loss(tour_lengths_tensor, log_probs_tensor, moving_baseline)
-
-            # batch_loss.backward()
-
-            ###########################################
-            ############# Critic baseline #############
-            ###########################################
-
-            # baseline_pred = critic(node_embeddings, batch.batch)
-            # critic_loss = F.mse_loss(baseline_pred, tour_lengths_tensor.detach())
-            # batch_loss = reinforce_loss(tour_lengths_tensor, log_probs_tensor, baseline=baseline_pred.detach())
-            # total_loss = batch_loss + critic_weight * critic_loss            
-            # total_loss.backward()
-
+            
             ###########################################
             ############ Rollout baseline #############
             ###########################################
@@ -405,16 +365,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
 
             optimizer.step()
 
-            # Free memory
-            # del batch
-            # del log_probs_tensor
-            # del tour_lengths_tensor
-            # del node_embeddings, tours, log_probs
-            # del rollout_embeddings, rollout_tours
-            # del rollout_lengths_tensor
-            # torch.cuda.empty_cache()
-            # gc.collect()
-
             epoch_loss += loss.item()
 
             end_time = time.time()
@@ -437,15 +387,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
         avg_tour_lengths.append(avg_epoch_tour_length)
 
         val_avg_tour_length = evaluate(encoder, decoder, val_loader, stops_idx, times, device)
-        # baseline_lengths, _ = evaluate(baseline_encoder, baseline_decoder, val_loader, stops_idx, times, device)
-
-        # baseline_arr = np.array(baseline_lengths)
-        # model_arr = np.array(model_lengths)
-
-        # t_stat, p_value = ttest_ind(baseline_arr, model_arr, equal_var=True)
-        # mean_baseline = baseline_arr.mean()
-        # mean_model = model_arr.mean()
-        # relative_improvement = (mean_baseline - mean_model) / mean_baseline
 
         avg_tour_lenghts_val.append(val_avg_tour_length)
 
@@ -461,7 +402,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
         utils.plot(avg_tour_lengths, avg_tour_lenghts_val)
         
         # Save the best model based on validation tour length
-        # if p_value < 0.05:
         if val_avg_tour_length < best_val_length:
             best_val_length = val_avg_tour_length
             patience_counter = 0
@@ -481,13 +421,6 @@ def train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train
         else:
             patience_counter += 1
 
-            # for baseline_param, model_param in zip(baseline_encoder.parameters(), encoder.parameters()):
-            #     baseline_param.data = tau * baseline_param.data + (1 - tau) * model_param.data
-            # baseline_encoder.eval()
-
-            # for baseline_param, model_param in zip(baseline_decoder.parameters(), decoder.parameters()):
-            #     baseline_param.data = tau * baseline_param.data + (1 - tau) * model_param.data
-            # baseline_decoder.eval()
 
             print(f"\033[33m No improvement ({patience_counter}/{patience})\033[0m")
 
@@ -536,12 +469,3 @@ if __name__ == "__main__":
 
     avg_tour_lengths, avg_tour_lenghts_val, best_val_length, epoch_times = train(encoder, decoder, baseline_encoder, baseline_decoder, optimizer, train_loader, val_loader, epochs, stops_idx, times, device)
     print(f"Difference between validation tour length and actual average validation tour length: {(best_val_length - actual_avg_val):.2f} seconds")
-    
-    # torch.save(encoder.state_dict(), "encoder.pth")
-    # torch.save(decoder.state_dict(), "decoder.pth")
-
-    # with open(f"train_times.json", "w") as f:
-    #     json.dump(epoch_times, f)
-
-    # Plot the results
-    # utils.plot(avg_tour_lengths, avg_tour_lenghts_val)
