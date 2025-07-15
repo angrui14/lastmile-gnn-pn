@@ -21,7 +21,7 @@ class PointerDecoder(nn.Module):
         self.v = nn.Parameter(torch.randn(embed_dim))
         self.hidden_init = nn.Linear(embed_dim, embed_dim)
 
-    def forward(self, node_embeddings, start_nodes, batch_idx, temperature=1.0):
+    def forward(self, node_embeddings, start_nodes, batch_idx):
         device = node_embeddings.device
         batch_size = start_nodes.size(0)
         total_nodes = node_embeddings.size(0)
@@ -82,11 +82,6 @@ class PointerDecoder(nn.Module):
             query = F.normalize(query, dim=-1)
             keys = F.normalize(keys, dim=-1)
 
-            # Scaled-dot attention
-            # scores = torch.matmul(query.unsqueeze(1), 
-            #                     keys.t().unsqueeze(0).expand(len(active_graphs), d, total_nodes)).squeeze(1)
-            # scores = scores / math.sqrt(d)
-
             # Tanh attention
             scores = torch.matmul(torch.tanh(keys + query.unsqueeze(1)), self.v).squeeze(-1)
 
@@ -100,9 +95,6 @@ class PointerDecoder(nn.Module):
             # Get probabilities with softmax
             probs = F.softmax(scores, dim=1)
             log_prob = torch.log(probs + 1e-10)
-            # entropy_per_graph = -(probs * log_prob).sum(dim=1)
-            # entropy = entropy_per_graph.mean()
-            # print(entropy)
 
             if self.training:
                 # If training, sample the next node based on the probabilities (explore)

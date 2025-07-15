@@ -32,8 +32,4 @@ class GNN(nn.Module):
         x3 = self.conv3(x2, edge_index, edge_attr=edge_attr)
         x3 = self.norm3(x3)
 
-        # if self.training:
-        #     noise = torch.randn_like(x3) * 0.02  # Ruido muy pequeño
-        #     x3 = x3 + noise
-
         return x3
