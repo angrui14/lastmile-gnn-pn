@@ -9,7 +9,7 @@ The encoder is defined in **GNNEncoder.py**, while the decoder is included in **
 
 ## Train
 
-**PyTorch_GNN.py** file contains the general training. Hyperparameters are defined in **__main__** and can be changed for training. It tries to read a file with the generated graphs. If it does not find them, it generates again the graphs and stores them in a file.
+**PyTorch_GNN.py** file contains the general training. Hyperparameters are defined in **\_\_main\_\_** and can be changed for training. It tries to read a file with the generated graphs. If it does not find them, it generates again the graphs and stores them in a file.
 
 **Zone_training.py** includes the code to train the models of each zone. It must be launched specifyng the number of the cluster to train (e. g. _python Zone\_training.py 0_). **zone_train.sh** automates the process with a loop that launches the training of all specified clusters.
 
